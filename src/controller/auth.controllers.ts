@@ -1,4 +1,5 @@
-import { Request, response, Response } from "express";
+import { Request, Response } from "express";
+import mongoose from "mongoose";
 import logger from "../utils/logger";
 import User, { UserRole, UserStatus } from "../modals/user.model";
 import bcrypt from "bcrypt";
@@ -10,7 +11,6 @@ class AuthController {
   //register
   public register = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const { name, email, password } = req.body;
       const result = registerSchema.safeParse(req.body);
       if (!result.success) {
         logger.error("Validation feild required field.");
@@ -21,9 +21,11 @@ class AuthController {
         });
       }
 
-      const normalizEmail = email.toLowerCase().trim();
+      // zod already trimmed and lowercased these
+      const { name, email, password } = result.data;
+
       const existEmail = await User.findOne({
-        email: normalizEmail,
+        email,
       });
       if (existEmail) {
         return res.status(409).json({
@@ -35,10 +37,10 @@ class AuthController {
       const passwordHash = await bcrypt.hash(password, 12);
       const user = await User.create({
         name,
-        email: normalizEmail,
+        email,
         passwordHash,
       });
-      logger.info("User register successfully", { email: normalizEmail });
+      logger.info("User register successfully", { email });
       return res.status(201).json({
         status: true,
         message: "User registered successfully",
@@ -64,10 +66,8 @@ class AuthController {
     req: Request,
     res: Response,
   ): Promise<Response | void> => {
-    const result = loginSchema.safeParse(req.body);
-    const { email, password } = req.body;
-
     try {
+      const result = loginSchema.safeParse(req.body);
       if (!result.success) {
         logger.warn("Fields required.");
         return res.status(400).json({
@@ -76,10 +76,10 @@ class AuthController {
           errors: z.treeifyError(result.error),
         });
       }
-      const normalizEmail = email.toLowerCase().trim();
+      const { email, password } = result.data;
 
       const user = await User.findOne({
-        email: normalizEmail,
+        email,
       }).select("+passwordHash");
 
       if (!user) {
@@ -192,17 +192,26 @@ class AuthController {
     res: Response,
   ): Promise<Response> => {
     try {
-      const userId = req.params.userId;
-      if (!userId) {
+      const { userId } = req.params;
+
+      if (!userId || !mongoose.isValidObjectId(userId)) {
         return res
           .status(400)
-          .json({ success: false, message: "userId required" });
+          .json({ success: false, message: "A valid userId is required" });
       }
-      await User.deleteOne({
+
+      const { deletedCount } = await User.deleteOne({
         _id: userId,
       });
+
+      if (deletedCount === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found" });
+      }
+
       return res
-        .status(204)
+        .status(200)
         .json({ success: true, message: "User successfully deleted" });
     } catch (error) {
       logger.error("Failed to delete user", { error });

@@ -77,10 +77,6 @@ const userSchema = new Schema<IUser, IUserModel>(
   },
 );
 
-userSchema.index({
-  email: 1,
-});
-
 userSchema.methods.comparePassword = async function (
   password: string,
 ): Promise<boolean> {

@@ -32,8 +32,6 @@ app.use((_req, res) => {
 
 app.use(errorHandler);
 
-app.use(errorHandler);
-
 const startServer = async () => {
   try {
     await databaseConnect();

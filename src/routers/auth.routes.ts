@@ -17,7 +17,7 @@ router.get("/logout", authController.logout);
 router.get("/me", requireAuth, authController.me);
 
 router.delete(
-  "/deleteUser",
+  "/deleteUser/:userId",
   requireAuth,
   allowRoles(UserRole.ADMIN),
   authController.deleteUser,

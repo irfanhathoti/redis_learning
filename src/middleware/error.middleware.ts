@@ -9,7 +9,8 @@ export const errorHandler = (
   next: NextFunction,
 ) => {
   logger.error("Unhandled application error", {
-    error,
+    // an Error stringifies to {}, so pull the stack out by hand
+    error: error instanceof Error ? error.stack || error.message : error,
     method: req.method,
     path: req.originalUrl,
   });
