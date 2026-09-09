@@ -7,6 +7,7 @@ import databaseConnect, { disconnectDatabase } from "./config/mongodb";
 import { connectRedis, disconnectRedis } from "./config/redis";
 import sessionMiddleWare from "./config/session";
 import authRoutes from "./routers/auth.routes";
+import { errorHandler } from "./middleware/error.middleware";
 
 const app = express();
 
@@ -16,11 +17,22 @@ app.use(express.json());
 
 app.use(sessionMiddleWare);
 
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
   res.send("Hello World!");
 });
 
 app.use("/api/v1/auth", authRoutes);
+
+app.use((_req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
+  });
+});
+
+app.use(errorHandler);
+
+app.use(errorHandler);
 
 const startServer = async () => {
   try {

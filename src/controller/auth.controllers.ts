@@ -9,9 +9,8 @@ import z from "zod";
 class AuthController {
   //register
   public register = async (req: Request, res: Response): Promise<Response> => {
-    const { name, email, password } = req.body;
-
     try {
+      const { name, email, password } = req.body;
       const result = registerSchema.safeParse(req.body);
       if (!result.success) {
         logger.error("Validation feild required field.");
@@ -52,7 +51,7 @@ class AuthController {
         },
       });
     } catch (error) {
-      logger.error("Field to register", { email, error });
+      logger.error("Field to register", { error });
       return res.status(500).json({
         success: false,
         message: "User registration failed",
@@ -185,6 +184,31 @@ class AuthController {
       return res
         .status(500)
         .json({ success: false, message: "Unable to get user." });
+    }
+  };
+
+  public deleteUser = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response> => {
+    try {
+      const userId = req.params.userId;
+      if (!userId) {
+        return res
+          .status(400)
+          .json({ success: false, message: "userId required" });
+      }
+      await User.deleteOne({
+        _id: userId,
+      });
+      return res
+        .status(204)
+        .json({ success: true, message: "User successfully deleted" });
+    } catch (error) {
+      logger.error("Failed to delete user", { error });
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to delete user" });
     }
   };
 }
