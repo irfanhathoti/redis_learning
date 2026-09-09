@@ -1,0 +1,192 @@
+import { Request, response, Response } from "express";
+import logger from "../utils/logger";
+import User, { UserRole, UserStatus } from "../modals/user.model";
+import bcrypt from "bcrypt";
+import { regenerateSession } from "../config/session";
+import { loginSchema, registerSchema } from "../validators/auth.validate";
+import z from "zod";
+
+class AuthController {
+  //register
+  public register = async (req: Request, res: Response): Promise<Response> => {
+    const { name, email, password } = req.body;
+
+    try {
+      const result = registerSchema.safeParse(req.body);
+      if (!result.success) {
+        logger.error("Validation feild required field.");
+        return res.status(400).json({
+          message: "Validation failed",
+          status: false,
+          errors: z.treeifyError(result.error),
+        });
+      }
+
+      const normalizEmail = email.toLowerCase().trim();
+      const existEmail = await User.findOne({
+        email: normalizEmail,
+      });
+      if (existEmail) {
+        return res.status(409).json({
+          message: "Email already registered",
+          status: false,
+        });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 12);
+      const user = await User.create({
+        name,
+        email: normalizEmail,
+        passwordHash,
+      });
+      logger.info("User register successfully", { email: normalizEmail });
+      return res.status(201).json({
+        status: true,
+        message: "User registered successfully",
+        data: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+        },
+      });
+    } catch (error) {
+      logger.error("Field to register", { email, error });
+      return res.status(500).json({
+        success: false,
+        message: "User registration failed",
+      });
+    }
+  };
+
+  //login
+  public login = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
+    const result = loginSchema.safeParse(req.body);
+    const { email, password } = req.body;
+
+    try {
+      if (!result.success) {
+        logger.warn("Fields required.");
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed.",
+          errors: z.treeifyError(result.error),
+        });
+      }
+      const normalizEmail = email.toLowerCase().trim();
+
+      const user = await User.findOne({
+        email: normalizEmail,
+      }).select("+passwordHash");
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid email or password",
+        });
+      }
+
+      const passwordValidate = await user.comparePassword(password);
+      if (!passwordValidate) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid email or password",
+        });
+      }
+
+      if (user.status !== UserStatus.ACTIVE) {
+        return res
+          .status(403)
+          .json({ success: false, message: "Account is not active" });
+      }
+
+      await regenerateSession(req);
+
+      req.session.userId = user._id.toString();
+
+      user.lastLoginAt = new Date();
+
+      await user.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Logged in successfully",
+        data: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
+      });
+    } catch (error) {
+      logger.error("Login failed", {
+        error,
+      });
+
+      return res.status(500).json({
+        success: false,
+        message: "Login failed",
+      });
+    }
+  };
+
+  public logout = async (req: Request, res: Response): Promise<void> => {
+    req.session.destroy((error) => {
+      if (error) {
+        res.status(500).json({
+          success: false,
+          message: "Logout field",
+        });
+        return;
+      }
+      res.clearCookie(process.env.SESSION_NAME || "sid");
+
+      res.status(200).json({
+        success: true,
+        message: "Logout successfully",
+      });
+    });
+  };
+
+  public me = async (req: Request, res: Response): Promise<Response> => {
+    const userId = req.session.userId;
+    try {
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
+      const user = await User.findOne({
+        _id: userId,
+      });
+      if (!user) {
+        return res
+          .status(401)
+          .json({ message: "User not found", success: false });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          status: user.status,
+          lastLoginAt: user.lastLoginAt,
+          createdAt: user.createdAt,
+        },
+      });
+    } catch (error) {
+      return res
+        .status(500)
+        .json({ success: false, message: "Unable to get user." });
+    }
+  };
+}
+
+export default AuthController;
