@@ -12,14 +12,14 @@ router.post("/register", authController.register);
 
 router.post("/login", authController.login);
 
-router.get("/logout", authController.logout);
+router.post("/logout", authController.logout);
 
 router.get("/me", requireAuth, authController.me);
 
 router.delete(
   "/deleteUser/:userId",
   requireAuth,
-  allowRoles(UserRole.ADMIN),
+  allowRoles(UserRole.ADMIN, UserRole.SUPER_ADMIN),
   authController.deleteUser,
 );
 

@@ -19,8 +19,13 @@ export const errorHandler = (
     return next(error);
   }
 
-  return res.status(500).json({
+  const status =
+    typeof (error as { status?: unknown }).status === "number"
+      ? (error as { status: number }).status
+      : 500;
+
+  return res.status(status).json({
     success: false,
-    message: "Internal server error",
+    message: status === 500 ? "Internal server error" : "Bad request",
   });
 };

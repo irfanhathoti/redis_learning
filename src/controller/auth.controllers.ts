@@ -3,7 +3,12 @@ import mongoose from "mongoose";
 import logger from "../utils/logger";
 import User, { UserRole, UserStatus } from "../modals/user.model";
 import bcrypt from "bcrypt";
-import { regenerateSession } from "../config/session";
+import {
+  regenerateSession,
+  SESSION_COOKIE_NAME,
+  sessionCookieOptions,
+} from "../config/session";
+import { AuthenticatedRequest } from "../middleware/auth.middleware";
 import { loginSchema, registerSchema } from "../validators/auth.validate";
 import z from "zod";
 
@@ -53,6 +58,14 @@ class AuthController {
         },
       });
     } catch (error) {
+      // unique index fires when two signups race past the findOne above
+      if ((error as { code?: number }).code === 11000) {
+        return res.status(409).json({
+          message: "Email already registered",
+          status: false,
+        });
+      }
+
       logger.error("Field to register", { error });
       return res.status(500).json({
         success: false,
@@ -142,7 +155,7 @@ class AuthController {
         });
         return;
       }
-      res.clearCookie(process.env.SESSION_NAME || "sid");
+      res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions);
 
       res.status(200).json({
         success: true,
@@ -151,22 +164,18 @@ class AuthController {
     });
   };
 
-  public me = async (req: Request, res: Response): Promise<Response> => {
-    const userId = req.session.userId;
+  public me = async (
+    req: AuthenticatedRequest,
+    res: Response,
+  ): Promise<Response> => {
     try {
-      if (!userId) {
+      const user = req.user;
+
+      if (!user) {
         return res.status(401).json({
           success: false,
           message: "Authentication required.",
         });
-      }
-      const user = await User.findOne({
-        _id: userId,
-      });
-      if (!user) {
-        return res
-          .status(401)
-          .json({ message: "User not found", success: false });
       }
 
       return res.status(200).json({

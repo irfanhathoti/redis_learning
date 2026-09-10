@@ -13,6 +13,9 @@ const app = express();
 
 const PORT = Number(process.env.PORT) || 5000;
 
+// without this a secure cookie is dropped behind a TLS-terminating proxy
+app.set("trust proxy", 1);
+
 app.use(express.json());
 
 app.use(sessionMiddleWare);

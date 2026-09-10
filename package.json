@@ -14,7 +14,6 @@
   "type": "commonjs",
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
-    "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.19.0",
     "@types/node": "^26.4.1",
@@ -24,7 +23,6 @@
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "bcryptjs": "^3.0.3",
     "connect-redis": "^10.0.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
