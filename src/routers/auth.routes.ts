@@ -1,5 +1,5 @@
 import { Router } from "express";
-import AuthController from "../controller/auth.controllers";
+import AuthController from "../controller/auth.controller";
 import { requireAuth } from "../middleware/auth.middleware";
 import { allowRoles } from "../middleware/role.middleware";
 import { UserRole } from "../modals/user.model";

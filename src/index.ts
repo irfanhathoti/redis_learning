@@ -7,6 +7,7 @@ import databaseConnect, { disconnectDatabase } from "./config/mongodb";
 import { connectRedis, disconnectRedis } from "./config/redis";
 import sessionMiddleWare from "./config/session";
 import authRoutes from "./routers/auth.routes";
+import userRoutes from "./routers/user.routes";
 import { errorHandler } from "./middleware/error.middleware";
 
 const app = express();
@@ -25,6 +26,7 @@ app.get("/", (_req, res) => {
 });
 
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/users", userRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({
