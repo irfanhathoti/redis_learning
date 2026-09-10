@@ -17,7 +17,7 @@ class UserController {
 
       if (cachedUsers) {
         return res.status(200).json({
-          success: false,
+          success: true,
           source: "cache",
           data: cachedUsers,
         });
