@@ -10,6 +10,7 @@ import authRoutes from "./routers/auth.routes";
 import userRoutes from "./routers/user.routes";
 import { errorHandler } from "./middleware/error.middleware";
 import apiRateLimiter from "./middleware/rateLimit.middleare";
+import { requestLogger } from "./middleware/requestLogger.middleware";
 
 const app = express();
 
@@ -17,6 +18,8 @@ const PORT = Number(process.env.PORT) || 5000;
 
 // without this a secure cookie is dropped behind a TLS-terminating proxy
 app.set("trust proxy", 1);
+
+app.use(requestLogger);
 
 app.use(express.json());
 

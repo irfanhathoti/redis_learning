@@ -4,10 +4,9 @@ import redisClient, { connectRedis } from "../config/redis";
 
 const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true,
   store: new RedisStore({
     sendCommand: async (...args: string[]) => {
       await connectRedis();
@@ -22,5 +21,4 @@ const loginRateLimiter = rateLimit({
   },
 });
 
-
-export default loginRateLimiter
+export default loginRateLimiter;

@@ -3,7 +3,7 @@ import RedisStore from "rate-limit-redis";
 import redisClient, { connectRedis } from "../config/redis";
 
 const apiRateLimiter = rateLimit({
-  windowMs: 2 * 60 * 1000,
+  windowMs: 15 * 60 * 1000,
   limit: 100,
   standardHeaders: true,
   legacyHeaders: true,
