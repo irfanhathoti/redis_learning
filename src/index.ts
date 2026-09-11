@@ -9,6 +9,7 @@ import sessionMiddleWare from "./config/session";
 import authRoutes from "./routers/auth.routes";
 import userRoutes from "./routers/user.routes";
 import { errorHandler } from "./middleware/error.middleware";
+import apiRateLimiter from "./middleware/rateLimit.middleare";
 
 const app = express();
 
@@ -18,6 +19,8 @@ const PORT = Number(process.env.PORT) || 5000;
 app.set("trust proxy", 1);
 
 app.use(express.json());
+
+app.use(apiRateLimiter);
 
 app.use(sessionMiddleWare);
 
@@ -34,6 +37,8 @@ app.use((_req, res) => {
     message: "Route not found",
   });
 });
+
+
 
 app.use(errorHandler);
 
