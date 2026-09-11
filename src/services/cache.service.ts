@@ -1,6 +1,11 @@
 import redisClient from "../config/redis";
 import logger from "../utils/logger";
 
+export const userCacheKey = (id: string) => `user:${id}`;
+export const usersListCacheKey = (limit: number, skip: number) =>
+  `users:list:${limit}:${skip}`;
+export const USERS_LIST_PATTERN = "users:list:*";
+
 class CacheService {
   public async get<T>(key: string): Promise<T | null> {
     try {
@@ -47,6 +52,22 @@ class CacheService {
       });
       return false;
     }
+  }
+
+  // SCAN rather than KEYS so a big keyspace doesn't block Redis
+  public async deleteByPattern(pattern: string): Promise<number> {
+    let deleted = 0;
+    try {
+      for await (const keys of redisClient.scanIterator({
+        MATCH: pattern,
+        COUNT: 100,
+      })) {
+        if (keys.length) deleted += await redisClient.del(keys);
+      }
+    } catch (error) {
+      logger.error("Cache pattern delete failed", { error, pattern });
+    }
+    return deleted;
   }
 }
 

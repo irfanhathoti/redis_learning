@@ -2,6 +2,10 @@ import { Request, Response } from "express";
 import mongoose from "mongoose";
 import logger from "../utils/logger";
 import User, { UserRole, UserStatus } from "../modals/user.model";
+import CacheService, {
+  userCacheKey,
+  USERS_LIST_PATTERN,
+} from "../services/cache.service";
 import bcrypt from "bcrypt";
 import {
   regenerateSession,
@@ -13,6 +17,8 @@ import { loginSchema, registerSchema } from "../validators/auth.validate";
 import z from "zod";
 
 class AuthController {
+  private cacheService = new CacheService();
+
   //register
   public register = async (req: Request, res: Response): Promise<Response> => {
     try {
@@ -46,6 +52,8 @@ class AuthController {
         passwordHash,
       });
       logger.info("User register successfully", { email });
+      // the cached user lists no longer include this user
+      await this.cacheService.deleteByPattern(USERS_LIST_PATTERN);
       return res.status(201).json({
         status: true,
         message: "User registered successfully",
@@ -203,7 +211,7 @@ class AuthController {
     try {
       const { userId } = req.params;
 
-      if (!userId || !mongoose.isValidObjectId(userId)) {
+      if (typeof userId !== "string" || !mongoose.isValidObjectId(userId)) {
         return res
           .status(400)
           .json({ success: false, message: "A valid userId is required" });
@@ -212,6 +220,12 @@ class AuthController {
       const { deletedCount } = await User.deleteOne({
         _id: userId,
       });
+
+      // drop cached copies even on a 404, in case a stale entry outlived the user
+      await Promise.all([
+        this.cacheService.deleteKey(userCacheKey(userId)),
+        this.cacheService.deleteByPattern(USERS_LIST_PATTERN),
+      ]);
 
       if (deletedCount === 0) {
         return res

@@ -1,7 +1,12 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import logger from "../utils/logger";
-import User from "../modals/user.model";
-import CacheService from "../services/cache.service";
+import User, { UserRole } from "../modals/user.model";
+import { AuthenticatedRequest } from "../middleware/auth.middleware";
+import CacheService, {
+  userCacheKey,
+  usersListCacheKey,
+} from "../services/cache.service";
 
 class UserController {
   private cacheService = new CacheService();
@@ -11,7 +16,7 @@ class UserController {
 
       const skip = Math.max(Number(req.query.skip) || 0, 0);
 
-      const cacheKey = `users:list:${limit}:${skip}`;
+      const cacheKey = usersListCacheKey(limit, skip);
 
       const cachedUsers = await this.cacheService.get(cacheKey);
 
@@ -24,11 +29,16 @@ class UserController {
       }
 
       const [users, total] = await Promise.all([
-        User.find({}).select("-passwordHash").limit(limit).skip(skip).lean(),
+        // stable order, otherwise pages can overlap or skip users
+        User.find({})
+          .select("-passwordHash")
+          .sort({ _id: 1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
 
         User.countDocuments(),
       ]);
-
 
       const result = {
         users,
@@ -54,15 +64,30 @@ class UserController {
         .json({ success: false, message: "Failed to get users." });
     }
   };
-  public getUser = async (req: Request, res: Response): Promise<Response> => {
+  public getUser = async (
+    req: AuthenticatedRequest,
+    res: Response,
+  ): Promise<Response> => {
     try {
       const { id } = req.params;
-      if (!id) {
+      if (typeof id !== "string" || !mongoose.isValidObjectId(id)) {
         return res
           .status(400)
-          .json({ success: false, message: "user id required" });
+          .json({ success: false, message: "A valid user id is required" });
       }
-      const cacheKey = `user:${id}`;
+
+      // checked before the cache lookup so a cached copy can't bypass it
+      const isSelf = String(req.user?._id) === id;
+      const isAdmin =
+        req.user?.role === UserRole.ADMIN ||
+        req.user?.role === UserRole.SUPER_ADMIN;
+      if (!isSelf && !isAdmin) {
+        return res
+          .status(403)
+          .json({ success: false, message: "Insufficient permissions" });
+      }
+
+      const cacheKey = userCacheKey(id);
       const cachedUser = await this.cacheService.get(cacheKey);
       if (cachedUser) {
         return res
@@ -81,7 +106,7 @@ class UserController {
         .status(200)
         .json({ success: true, data: user, source: "database" });
     } catch (error) {
-      logger.error("Failed to fetch user");
+      logger.error("Failed to fetch user", { error, id: req.params.id });
       return res
         .status(500)
         .json({ success: false, message: "Failed to fetch user" });
