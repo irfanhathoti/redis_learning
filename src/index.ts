@@ -11,6 +11,10 @@ import userRoutes from "./routers/user.routes";
 import { errorHandler } from "./middleware/error.middleware";
 import apiRateLimiter from "./middleware/rateLimit.middleare";
 import { requestLogger } from "./middleware/requestLogger.middleware";
+import {
+  connectSubscriber,
+  subscribeToNotifications,
+} from "./services/pubsub.service";
 
 const app = express();
 
@@ -41,14 +45,15 @@ app.use((_req, res) => {
   });
 });
 
-
-
 app.use(errorHandler);
 
 const startServer = async () => {
   try {
     await databaseConnect();
     await connectRedis();
+    await connectSubscriber();
+
+    await subscribeToNotifications();
 
     const server = app.listen(PORT, () => {
       logger.info(`App listening on port ${PORT}`, {
